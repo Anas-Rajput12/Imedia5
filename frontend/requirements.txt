@@ -1,0 +1,6 @@
+# Frontend dependencies are in package.json
+# This file is for documentation purposes
+# Next.js: 14.0.0
+# React: ^18
+# Tailwind CSS: ^3
+# Socket.io-client: ^4.7.2
