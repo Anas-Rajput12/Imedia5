@@ -205,7 +205,7 @@ export default function TutorPage() {
   const [currentLessonSection, setCurrentLessonSection] = useState(0)
   const [isSectionComplete, setIsSectionComplete] = useState(false)
   const [lessonSections, setLessonSections] = useState<string[]>([])
-  const [avatarTeachingMode, setAvatarTeachingMode] = useState<'explaining' | 'writing' | 'pointing' | 'idle'>('explaining')
+  const [avatarTeachingMode, setAvatarTeachingMode] = useState<'explaining' | 'writing' | 'pointing' | 'idle' | 'listening'>('idle')
   const [isAvatarWriting, setIsAvatarWriting] = useState(false)
   const [isAvatarPointing, setIsAvatarPointing] = useState(false)
   const [currentSlide, setCurrentSlide] = useState(0)
