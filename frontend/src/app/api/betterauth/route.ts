@@ -1,7 +1,6 @@
 import { auth } from "@/lib/auth-config";
-import { nextJSAdapter } from "better-auth/next-js";
+import { NextJSAdapter } from "better-auth/next-js"; // updated
 
-// Create the API handler for Better Auth
-const handler = nextJSAdapter(auth);
+const handler = NextJSAdapter(auth);
 
 export { handler as GET, handler as POST };
