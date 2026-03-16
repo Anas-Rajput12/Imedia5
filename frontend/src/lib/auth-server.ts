@@ -1,4 +1,6 @@
-import { auth } from "./auth-config";
+// This is server-only and can safely import Clerk server helpers
+import { currentUser as clerkCurrentUser } from '@clerk/nextjs/server';
 
-// Export the same auth configuration for server-side usage
-export { auth };
+export const getCurrentUser = async () => {
+  return await clerkCurrentUser();
+};
