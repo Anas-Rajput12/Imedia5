@@ -75,13 +75,17 @@ export default function TutorPage() {
 
   const { startVoice, stopVoice, isStreaming } = useLiveVoice(
     async () => {
+      // This is called when user STARTS speaking (push-to-talk)
+      console.log('🎤 [VOICE] User started speaking...');
+      setAvatarTeachingMode('listening');
+      
       const subjectMap: Record<string, string> = {
         'maths': 'Maths',
         'science': 'Biology',
         'homework': 'English',
       }
       const subject = subjectMap[type] || 'Maths'
-      
+
       const topicContent = await ragService.getTopicContent(
         subject,
         selectedQdrantTopic || lessonTopic,
@@ -98,9 +102,24 @@ export default function TutorPage() {
         context: context || 'No context available',
       }
     },
-    async (text: string) => {
-      console.log('🔊 [DIRECT VOICE] Speaking response...')
-      await speakText(text)
+    async (transcript: string) => {
+      // This is called when user STOPS speaking (has transcript)
+      console.log('🎤 [VOICE] User stopped speaking, transcript:', transcript);
+      
+      // Check teaching phase to determine how to handle
+      if (teachingPhase === 'concept') {
+        // Student is asking a question about the topic
+        console.log('[VOICE] Handling student question...');
+        await handleVoiceQuestion(transcript);
+      } else if (teachingPhase === 'practice') {
+        // Student is answering a practice question
+        console.log('[VOICE] Handling student answer...');
+        await handleVoiceAnswer(transcript);
+      } else {
+        // Default: treat as question
+        console.log('[VOICE] Handling as default question...');
+        await handleVoiceQuestion(transcript);
+      }
     }
   )
 
@@ -680,55 +699,81 @@ export default function TutorPage() {
     // Set speaking state for lip-sync
     setIsSpeaking(true);
 
-    // Simulate realistic audio levels for lip-sync (word-by-word patterns)
-    const audioInterval = setInterval(() => {
-      // Generate realistic speech patterns
-      const baseLevel = 0.45 + Math.random() * 0.35;  // Base volume
-      const emphasis = Math.random() > 0.65 ? 0.25 : 0;  // Emphasis on important words
-      const pause = Math.random() > 0.88 ? 0.15 : 0;  // Natural pauses
-      setAudioLevel(baseLevel + emphasis - pause);
-    }, 75);  // Update every 75ms for smooth animation
+    // Create a promise that resolves when speech ends
+    return new Promise<void>((resolve) => {
+      // Simulate realistic audio levels for lip-sync (word-by-word patterns)
+      const audioInterval = setInterval(() => {
+        // Generate realistic speech patterns
+        const baseLevel = 0.45 + Math.random() * 0.35;  // Base volume
+        const emphasis = Math.random() > 0.65 ? 0.25 : 0;  // Emphasis on important words
+        const pause = Math.random() > 0.88 ? 0.15 : 0;  // Natural pauses
+        setAudioLevel(baseLevel + emphasis - pause);
+      }, 75);  // Update every 75ms for smooth animation
 
-    // Clean text for speech (remove markdown, emojis, etc.)
-    const cleanText = text
-      .replace(/\*\*/g, '')
-      .replace(/\*/g, '')
-      .replace(/#+\s/g, '')
-      .replace(/⭐/g, '')
-      .replace(/\s+/g, ' ')
-      .trim()
+      // Clean text for speech (remove markdown, emojis, etc.)
+      const cleanText = text
+        .replace(/\*\*/g, '')
+        .replace(/\*/g, '')
+        .replace(/#+\s/g, '')
+        .replace(/⭐/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
 
-    // Cancel any ongoing speech
-    window.speechSynthesis.cancel()
+      // Cancel any ongoing speech
+      window.speechSynthesis.cancel()
 
-    const utterance = new SpeechSynthesisUtterance(cleanText)
-    
-    // Configure voice settings
-    utterance.rate = 0.95 // Slightly slower for clarity
-    utterance.pitch = 1.0
-    utterance.volume = 1.0
-    utterance.lang = 'en-US'
+      const utterance = new SpeechSynthesisUtterance(cleanText)
 
-    // Wait for voices to load if needed
-    let voices = window.speechSynthesis.getVoices()
-    
-    if (voices.length === 0) {
-      console.log('⏳ Waiting for voices to load...')
-      await new Promise<void>((resolve) => {
+      // Configure voice settings
+      utterance.rate = 0.95 // Slightly slower for clarity
+      utterance.pitch = 1.0
+      utterance.volume = 1.0
+      utterance.lang = 'en-US'
+
+      // When speech ends, cleanup and resolve
+      utterance.onend = () => {
+        console.log('✅ Browser TTS speech ended')
+        setIsSpeaking(false)
+        setAudioLevel(0)
+        clearInterval(audioInterval)
+        resolve() // Resolve the promise when speech completes
+      }
+
+      utterance.onerror = (event) => {
+        console.error('❌ Browser TTS error:', event)
+        setIsSpeaking(false)
+        setAudioLevel(0)
+        clearInterval(audioInterval)
+        resolve() // Still resolve on error
+      }
+
+      // Wait for voices to load if needed
+      let voices = window.speechSynthesis.getVoices()
+
+      if (voices.length === 0) {
+        console.log('⏳ Waiting for voices to load...')
         window.speechSynthesis.onvoiceschanged = () => {
           voices = window.speechSynthesis.getVoices()
           console.log('✅ Voices loaded:', voices.length)
-          resolve()
+          
+          // Select voice and speak
+          selectVoiceAndSpeak(utterance, voices, voiceType)
         }
-        // Timeout after 2 seconds if voices don't load
+        // Timeout after 1 second if voices don't load
         setTimeout(() => {
           voices = window.speechSynthesis.getVoices()
           console.log('⏰ Voice timeout, using available voices:', voices.length)
-          resolve()
-        }, 2000)
-      })
-    }
+          selectVoiceAndSpeak(utterance, voices, voiceType)
+        }, 1000)
+      } else {
+        // Voices already loaded, speak immediately
+        selectVoiceAndSpeak(utterance, voices, voiceType)
+      }
+    });
+  }
 
+  // Helper function to select voice and speak
+  const selectVoiceAndSpeak = (utterance: SpeechSynthesisUtterance, voices: SpeechSynthesisVoice[], voiceType: 'male' | 'female') => {
     // Prefer English voices
     const englishVoices = voices.filter(voice => voice.lang.startsWith('en'))
     console.log('🎤 Available English voices:', englishVoices.map(v => v.name).join(', '))
@@ -772,21 +817,9 @@ export default function TutorPage() {
       console.log('🎤 Using default voice:', englishVoices[0].name)
     }
 
-    utterance.onend = () => {
-      console.log('✅ Browser TTS speech ended')
-      setIsSpeaking(false)
-      setAudioLevel(0)
-      clearInterval(audioInterval)
-    }
-
-    utterance.onerror = (event) => {
-      console.error('❌ Browser TTS error:', event)
-      setIsSpeaking(false)
-      setAudioLevel(0)
-      clearInterval(audioInterval)
-    }
-
+    // Start speaking
     window.speechSynthesis.speak(utterance)
+    console.log('🔊 Speech started, waiting for completion...')
   }
 
   const startLesson = (topic: Topic) => {
@@ -1960,14 +1993,22 @@ ${step.highlight ? `🎯 Focus: ${step.highlight}` : ''}`);
   };
 
   /**
-   * Initialize SMART AI Teacher Session
-   * SIMPLIFIED: Just show welcome and enable live voice mode
+   * NATURAL TEACHING FLOW - Real Teacher Experience
+   * STEP 1: Brief explanation on board (no interruptions)
+   * STEP 2: Teacher speaks explanation with voice
+   * STEP 3: Teacher asks "Do you have any questions?" (voice)
+   * STEP 4: User asks question via voice (push-to-talk)
+   * STEP 5: Teacher answers with voice (real teacher style, not chatbot)
+   * STEP 6: Teacher speaks practice question
+   * STEP 7: User answers via voice
+   * STEP 8: Teacher highlights mistakes and explains
    */
   const initializeSmartTeaching = async (topicName: string) => {
-    console.log('[SMART TEACHING] Starting for topic:', topicName);
+    console.log('[NATURAL TEACHING] Starting for topic:', topicName);
 
     try {
       setSmartTeachingActive(true);
+      setTeachingPhase('concept'); // Start with concept explanation
 
       // Map tutor type to subject
       const subjectMap: Record<string, string> = {
@@ -1978,70 +2019,544 @@ ${step.highlight ? `🎯 Focus: ${step.highlight}` : ''}`);
       const subject = subjectMap[type] || 'Maths';
 
       // ============================================
-      // STEP 1: CURRICULUM LOCK CHECK
+      // STEP 1: Load topic content and display BRIEFLY
       // ============================================
-      console.log('[SMART TEACHING] Step 1: Checking curriculum lock...');
-      const curriculumLock = await checkCurriculumLock(
-        selectedQdrantTopic || topicName,
+      console.log('[NATURAL TEACHING] Step 1: Loading topic content...');
+      console.log('[NATURAL TEACHING] Topic:', selectedQdrantTopic || topicName);
+
+      const topicContent = await ragService.getTopicContent(
         subject,
+        selectedQdrantTopic || topicName,
         selectedYear || `Year ${selectedClass}`
       );
 
-      setCurriculumLockStatus(curriculumLock);
-      console.log('[SMART TEACHING] ✅ Curriculum lock status:', curriculumLock.locked);
-
-      // ============================================
-      // STEP 2: WELCOME MESSAGE
-      // ============================================
-      console.log('[SMART TEACHING] Step 2: Welcome message...');
+      console.log('[NATURAL TEACHING] Topic content loaded:', topicContent);
       
-      const welcomeMessage: Message = {
-        id: 'welcome',
-        sender: 'teacher',
-        text: `Great! Today we're studying **${selectedQdrantTopic || topicName}**. Click the **PUSH TO TALK** button below to ask me questions!`,
-        type: 'text',
-      };
+      const contextChunks = topicContent.documents?.flatMap((d: any) => d.chunks || []) || [];
+      const context = contextChunks.slice(0, 2).map((c: any) => c.content).join('\n\n');
+      
+      console.log('[NATURAL TEACHING] Context chunks:', contextChunks.length);
+      console.log('[NATURAL TEACHING] Context text:', context.substring(0, 100) + '...');
 
-      setChat([welcomeMessage]);
+      // Display brief introduction on board (NO interruptions)
+      const boardContent = `📖 ${selectedQdrantTopic || topicName}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+${context || 'Loading content...'}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+💡 Listen carefully as I explain this...`;
+
+      console.log('[NATURAL TEACHING] Setting board content...');
+      setBoardText(boardContent);
+      setLessonTopic(topicName);
+      console.log('[NATURAL TEACHING] ✅ Board content displayed');
+      
+      // Small pause to let user see the content before explanation starts
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // ============================================
+      // STEP 2: Teacher SPEAKS the explanation (Voice)
+      // ============================================
+      console.log('[NATURAL TEACHING] Step 2: Speaking explanation...');
+      console.log('[NATURAL TEACHING] Context to explain:', context);
+
       setAvatarTeachingMode('explaining');
-      
-      await speakText(welcomeMessage.text);
-      console.log('[VOICE] ✅ Welcome message spoken!');
-      
-      // Small pause
-      await new Promise(resolve => setTimeout(resolve, 1500));
 
-      // ============================================
-      // STEP 3: SHOW LIVE VOICE BUTTON HINT
-      // ============================================
-      console.log('[SMART TEACHING] Step 3: Showing live voice hint...');
+      const explanationPrompt = `You are a friendly UK school teacher. Explain this topic briefly and clearly to a Year ${selectedClass || '7-9'} student:
+
+TOPIC: ${selectedQdrantTopic || topicName}
+CONTENT: ${context || 'General explanation needed'}
+
+Keep it simple, use real-life examples (£, school, sports), and speak conversationally like you're sitting next to the student.`;
+
+      console.log('[OPENROUTER] Fetching explanation from AI...');
       
-      const hintMessage: Message = {
-        id: 'hint',
+      try {
+        const explanationResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${process.env.NEXT_PUBLIC_OPENROUTER_API_KEY}`,
+            'Content-Type': 'application/json',
+            'HTTP-Referer': 'http://localhost:3000',
+          },
+          body: JSON.stringify({
+            model: 'meta-llama/llama-3-8b-instruct',
+            messages: [
+              {
+                role: 'system',
+                content: 'You are a friendly, patient UK school teacher. Explain concepts clearly and conversationally. Use UK spelling and examples.'
+              },
+              { role: 'user', content: explanationPrompt }
+            ],
+            max_tokens: 300,
+            temperature: 0.7,
+          }),
+        });
+
+        if (!explanationResponse.ok) {
+          throw new Error(`OpenRouter API error: ${explanationResponse.status}`);
+        }
+
+        const explanationData = await explanationResponse.json();
+        const teacherExplanation = explanationData.choices?.[0]?.message?.content || `Let me explain ${topicName} to you...`;
+        
+        console.log('[OPENROUTER] ✅ Explanation received:', teacherExplanation.substring(0, 100) + '...');
+
+        // Speak the explanation (Avatar teacher talks)
+        // WAIT until speech is COMPLETE before continuing
+        console.log('[VOICE] Speaking explanation... WAIT for completion');
+        await speakText(teacherExplanation);
+        console.log('[VOICE] ✅ Explanation speech COMPLETE!');
+        
+      } catch (error) {
+        console.error('[OPENROUTER] Error fetching explanation:', error);
+        
+        // FALLBACK: Use the context directly as explanation
+        console.log('[OPENROUTER] Using fallback explanation from context...');
+        const fallbackExplanation = context || `Let me explain ${topicName} to you. This is an important topic in your curriculum. ${context ? 'The key points are: ' + context : ''}`;
+        
+        console.log('[VOICE] Speaking fallback explanation...');
+        await speakText(fallbackExplanation);
+        console.log('[VOICE] ✅ Fallback explanation speech COMPLETE!');
+      }
+      
+      // ============================================
+      // STEP 3: Teacher asks "Do you have any questions?" (Voice)
+      // ONLY shows AFTER explanation fully completes
+      // ============================================
+      console.log('[NATURAL TEACHING] Step 3: Asking for questions...');
+      
+      const questionPrompt = "Do you have any questions about what I just explained? You can ask me anything - just click the microphone button and speak!";
+      
+      const questionMessage: Message = {
+        id: 'teacher_question',
         sender: 'teacher',
-        text: `🎤 **Click the "PUSH TO TALK" button** (purple button above chat) to start a voice conversation with me!\n\nYou can ask me anything about **${selectedQdrantTopic || topicName}** and I'll explain it to you.`,
+        text: questionPrompt,
         type: 'text',
       };
+      setChat([questionMessage]);
       
-      setChat(prev => [...prev, hintMessage]);
+      setAvatarTeachingMode('questioning');
       
-      const hintBoard = `🎤 **LIVE VOICE MODE**\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nClick the **PUSH TO TALK** button above to start talking!\n\nI can help you with:\n• Explaining concepts\n• Answering questions\n• Working through examples\n• Practice problems\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n💡 Just click and start speaking!`;
+      // Speak the question and WAIT for it to complete
+      console.log('[VOICE] Speaking question prompt...');
+      await speakText(questionPrompt);
+      console.log('[VOICE] ✅ Question prompt speech COMPLETE!');
       
-      setBoardText(hintBoard);
-      
-      console.log('[SMART TEACHING] ✅ Ready for live voice mode!');
+      console.log('[NATURAL TEACHING] ✅ Waiting for student questions...');
+      // Now student can ask questions via voice (push-to-talk button)
 
     } catch (error) {
-      console.error('[SMART TEACHING] Error:', error);
+      console.error('[NATURAL TEACHING] Error:', error);
       setSmartTeachingActive(false);
       
       const errorMessage: Message = {
-        id: `error_smart_${Date.now()}`,
+        id: `error_${Date.now()}`,
         sender: 'teacher',
-        text: "Welcome! Click the PUSH TO TALK button to start talking with me!",
+        text: "Welcome! Let's start learning about " + topicName + "!",
         type: 'text',
       };
-      setChat(prev => [...prev, errorMessage]);
+      setChat([errorMessage]);
+      await speakText(errorMessage.text);
+    }
+  }
+
+  /**
+   * Handle voice question from student and answer with voice (Real Teacher Style)
+   */
+  const handleVoiceQuestion = async (question: string) => {
+    console.log('[VOICE QUESTION] Student asked:', question);
+    
+    try {
+      setAvatarTeachingMode('listening');
+      
+      // Add student question to chat (for display only)
+      const studentMessage: Message = {
+        id: `voice_q_${Date.now()}`,
+        sender: 'student',
+        text: question,
+        type: 'voice',
+      };
+      setChat(prev => [...prev, studentMessage]);
+      
+      // Get context from Qdrant
+      const subjectMap: Record<string, string> = {
+        'maths': 'Maths',
+        'science': 'Biology',
+        'homework': 'English',
+      };
+      const subject = subjectMap[type] || 'Maths';
+      
+      const topicContent = await ragService.getTopicContent(
+        subject,
+        selectedQdrantTopic || lessonTopic,
+        selectedYear || `Year ${selectedClass}`
+      );
+      
+      const context = topicContent.documents?.flatMap((d: any) => d.chunks || [])
+        .map((c: any) => c.content).join('\n\n') || '';
+      
+      // Build teacher response (REAL TEACHER STYLE - not chatbot)
+      const teacherPrompt = `You are a friendly UK school teacher sitting next to the student. The student just asked you this question:
+
+STUDENT QUESTION: "${question}"
+
+CURRICULUM CONTENT:
+${context || 'Use your general teaching knowledge'}
+
+Answer like a REAL HUMAN TEACHER would:
+✓ Speak conversationally (not like a chatbot)
+✓ Use "you" and "let me show you"
+✓ Explain step-by-step if it's a problem
+✓ Use simple analogies from everyday life (£, school, sports, food)
+✓ Check understanding: "Does that make sense?"
+✓ Be encouraging and supportive
+✓ Keep it brief (30-60 seconds to speak)
+✓ NEVER say "As an AI..." or "I'm an AI..."
+
+Respond as if you're speaking aloud to the student right now.`;
+
+      const teacherResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_OPENROUTER_API_KEY}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': 'http://localhost:3000',
+        },
+        body: JSON.stringify({
+          model: 'meta-llama/llama-3-8b-instruct',
+          messages: [
+            { 
+              role: 'system', 
+              content: 'You are a friendly, patient UK school teacher. Answer student questions conversationally, like you\'re sitting next to them. Use UK spelling and examples (£, school years). NEVER mention you\'re an AI.'
+            },
+            { role: 'user', content: teacherPrompt }
+          ],
+          max_tokens: 400,
+          temperature: 0.7,
+        }),
+      });
+
+      const responseData = await teacherResponse.json();
+      const teacherAnswer = responseData.choices?.[0]?.message?.content || "That's a great question! Let me explain...";
+
+      // Display teacher answer on board
+      const boardContent = `❓ Your Question: ${question}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📖 Teacher's Answer:
+
+${teacherAnswer}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+💡 Does that make sense?`;
+
+      setBoardText(boardContent);
+      
+      // Add teacher answer to chat
+      const teacherMessage: Message = {
+        id: `teacher_a_${Date.now()}`,
+        sender: 'teacher',
+        text: teacherAnswer,
+        type: 'voice',
+      };
+      setChat(prev => [...prev, teacherMessage]);
+      
+      // SPEAK the answer (Avatar teacher talks)
+      console.log('[VOICE] Speaking teacher answer...');
+      setAvatarTeachingMode('explaining');
+      await speakText(teacherAnswer);
+      
+      // After answering, ask practice question
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      await askPracticeQuestion();
+      
+    } catch (error) {
+      console.error('[VOICE QUESTION] Error:', error);
+      
+      const fallbackAnswer = "That's a really good question! Let me explain what I know about this...";
+      
+      const fallbackMessage: Message = {
+        id: `teacher_fallback_${Date.now()}`,
+        sender: 'teacher',
+        text: fallbackAnswer,
+        type: 'voice',
+      };
+      setChat(prev => [...prev, fallbackMessage]);
+      setBoardText(`❓ Your Question: ${question}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📖 Teacher's Response:\n\n${fallbackAnswer}\n\n💡 Let's explore this together!`);
+      
+      setAvatarTeachingMode('explaining');
+      await speakText(fallbackAnswer);
+    }
+  }
+
+  /**
+   * Ask practice question (Teacher speaks it)
+   */
+  const askPracticeQuestion = async () => {
+    console.log('[PRACTICE] Asking practice question...');
+    
+    try {
+      // Switch to practice phase
+      setTeachingPhase('practice');
+      
+      const subjectMap: Record<string, string> = {
+        'maths': 'Maths',
+        'science': 'Biology',
+        'homework': 'English',
+      };
+      const subject = subjectMap[type] || 'Maths';
+      
+      // Generate practice question
+      const practicePrompt = `Generate ONE practice question for this topic:
+
+TOPIC: ${selectedQdrantTopic || lessonTopic}
+YEAR: ${selectedYear || `Year ${selectedClass}`}
+SUBJECT: ${subject}
+
+Format:
+- Question text (clear and simple)
+- Expected answer (for teacher reference)
+- Hint if student gets stuck
+
+Return as JSON:
+{
+  "question": "Question text",
+  "answer": "Expected answer",
+  "hint": "Helpful hint"
+}`;
+
+      const practiceResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_OPENROUTER_API_KEY}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': 'http://localhost:3000',
+        },
+        body: JSON.stringify({
+          model: 'meta-llama/llama-3-8b-instruct',
+          messages: [
+            { role: 'system', content: 'You are a UK school teacher generating practice questions.' },
+            { role: 'user', content: practicePrompt }
+          ],
+          max_tokens: 300,
+          temperature: 0.7,
+        }),
+      });
+
+      const practiceData = await practiceResponse.json();
+      const practiceContent = practiceData.choices?.[0]?.message?.content || '{}';
+      
+      // Parse JSON response
+      let practiceQuestion;
+      try {
+        practiceQuestion = JSON.parse(practiceContent.replace(/```json|```/g, '').trim());
+      } catch {
+        practiceQuestion = {
+          question: `Can you explain more about ${selectedQdrantTopic || lessonTopic}?`,
+          answer: 'Varies',
+          hint: 'Think about what we discussed',
+        };
+      }
+      
+      // Display practice question on board
+      const boardContent = `✏️ Your Turn!
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+${practiceQuestion.question}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+💡 Hint: ${practiceQuestion.hint || 'Think carefully!'}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎤 Click the microphone and SPEAK your answer!`;
+
+      setBoardText(boardContent);
+      
+      // Teacher SPEAKS the practice question
+      setAvatarTeachingMode('questioning');
+      const spokenQuestion = `Now I'd like you to try a question. Listen carefully: ${practiceQuestion.question}. ${practiceQuestion.hint ? 'Hint: ' + practiceQuestion.hint : ''} Click the microphone button and speak your answer!`;
+      
+      const practiceMessage: Message = {
+        id: `practice_q_${Date.now()}`,
+        sender: 'teacher',
+        text: spokenQuestion,
+        type: 'voice',
+      };
+      setChat(prev => [...prev, practiceMessage]);
+      
+      await speakText(spokenQuestion);
+      
+      // Store practice question for evaluation
+      ;(window as any).__currentPracticeQuestion = practiceQuestion;
+      
+      console.log('[PRACTICE] ✅ Question asked, waiting for student answer...');
+      
+    } catch (error) {
+      console.error('[PRACTICE] Error:', error);
+      
+      const fallbackQuestion = `Can you tell me more about what you've learned about ${selectedQdrantTopic || lessonTopic}?`;
+      
+      const fallbackMessage: Message = {
+        id: `practice_fallback_${Date.now()}`,
+        sender: 'teacher',
+        text: `Now try this: ${fallbackQuestion} Click the microphone and speak your answer!`,
+        type: 'voice',
+      };
+      setChat(prev => [...prev, fallbackMessage]);
+      
+      setBoardText(`✏️ Your Turn!\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n${fallbackQuestion}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n🎤 Click the microphone and SPEAK your answer!`);
+      
+      await speakText(fallbackMessage.text);
+      
+      ;(window as any).__currentPracticeQuestion = { question: fallbackQuestion, answer: 'Varies', hint: '' };
+    }
+  }
+
+  /**
+   * Handle student voice answer and check for mistakes
+   */
+  const handleVoiceAnswer = async (answer: string) => {
+    console.log('[VOICE ANSWER] Student answered:', answer);
+    
+    try {
+      const practiceQuestion = (window as any).__currentPracticeQuestion;
+      
+      if (!practiceQuestion) {
+        console.error('[VOICE ANSWER] No practice question found');
+        return;
+      }
+      
+      // Add student answer to chat
+      const studentMessage: Message = {
+        id: `voice_a_${Date.now()}`,
+        sender: 'student',
+        text: answer,
+        type: 'voice',
+      };
+      setChat(prev => [...prev, studentMessage]);
+      
+      // Evaluate answer (check for mistakes)
+      const evalPrompt = `You are a UK school teacher evaluating a student's answer.
+
+QUESTION: ${practiceQuestion.question}
+EXPECTED ANSWER: ${practiceQuestion.answer}
+STUDENT ANSWER: ${answer}
+
+Check if the student understands the concept. Look for:
+1. Is the answer correct?
+2. If wrong, what is the specific mistake?
+3. How would you explain the correct method?
+
+Return as JSON:
+{
+  "isCorrect": true/false,
+  "feedback": "Encouraging feedback",
+  "mistake": "Description of mistake if wrong",
+  "highlightedError": "Specific error to highlight",
+  "correctMethod": "Step-by-step correct method if wrong"
+}`;
+
+      const evalResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_OPENROUTER_API_KEY}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': 'http://localhost:3000',
+        },
+        body: JSON.stringify({
+          model: 'meta-llama/llama-3-8b-instruct',
+          messages: [
+            { role: 'system', content: 'You are a supportive UK school teacher evaluating student answers. Be encouraging but accurate.' },
+            { role: 'user', content: evalPrompt }
+          ],
+          max_tokens: 400,
+          temperature: 0.7,
+        }),
+      });
+
+      const evalData = await evalResponse.json();
+      const evalContent = evalData.choices?.[0]?.message?.content || '{}';
+      
+      // Parse JSON response
+      let evaluation;
+      try {
+        evaluation = JSON.parse(evalContent.replace(/```json|```/g, '').trim());
+      } catch {
+        evaluation = {
+          isCorrect: false,
+          feedback: "Good effort! Let me explain...",
+          mistake: "Some misunderstanding",
+          highlightedError: "Key concept error",
+          correctMethod: "Let me show you the correct way...",
+        };
+      }
+      
+      // Display feedback on board
+      const boardContent = `${evaluation.isCorrect ? '✅ Excellent!' : '🤔 Let\'s Learn'}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+${evaluation.feedback}
+
+${!evaluation.isCorrect ? `
+**Mistake:** ${evaluation.highlightedError || 'Let me explain...'}
+
+**Correct Method:**
+${evaluation.correctMethod || 'Let me show you...'}` : ''}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+${evaluation.isCorrect ? '🌟 Well done! You understand this!' : '💡 Let\'s try another question!'}`;
+
+      setBoardText(boardContent);
+      
+      // Teacher SPEAKS the feedback
+      setAvatarTeachingMode(evaluation.isCorrect ? 'explaining' : 'explaining');
+      const spokenFeedback = evaluation.isCorrect 
+        ? `${evaluation.feedback} Well done! You really understand ${selectedQdrantTopic || lessonTopic}!`
+        : `${evaluation.feedback} ${evaluation.mistake || ''} ${evaluation.correctMethod || 'Let me show you the correct method...'}`;
+      
+      const feedbackMessage: Message = {
+        id: `feedback_${Date.now()}`,
+        sender: 'teacher',
+        text: spokenFeedback,
+        type: 'voice',
+      };
+      setChat(prev => [...prev, feedbackMessage]);
+      
+      await speakText(spokenFeedback);
+      
+      // If wrong, give another chance
+      if (!evaluation.isCorrect) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        await askPracticeQuestion(); // Ask similar question
+      }
+      
+    } catch (error) {
+      console.error('[VOICE ANSWER] Error evaluating:', error);
+      
+      const fallbackFeedback = "Good effort! Let me explain the correct answer...";
+      
+      const fallbackMessage: Message = {
+        id: `feedback_fallback_${Date.now()}`,
+        sender: 'teacher',
+        text: fallbackFeedback,
+        type: 'voice',
+      };
+      setChat(prev => [...prev, fallbackMessage]);
+      
+      setBoardText(`🤔 Let's Learn\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n${fallbackFeedback}\n\n💡 Let me explain...`);
+      
+      await speakText(fallbackFeedback);
     }
   }
 
@@ -2780,6 +3295,7 @@ ${step.highlight ? `🎯 Focus: ${step.highlight}` : ''}`);
   /**
    * Handle student question - Direct teacher conversation
    * Student asks question → Avatar teacher speaks answer
+   * Uses UK Teacher Persona for supportive, step-by-step teaching
    */
   const handleStudentQuestionDirect = async (question: string) => {
     console.log('[STUDENT QUESTION] Received:', question);
@@ -2811,28 +3327,59 @@ ${step.highlight ? `🎯 Focus: ${step.highlight}` : ''}`);
       );
 
       const contextChunks = topicContent.documents?.flatMap((d: any) => d.chunks || []) || [];
-      const context = contextChunks.slice(0, 2).map((c: any) => c.content).join('\n\n');
+      const context = contextChunks.slice(0, 3).map((c: any) => c.content).join('\n\n');
 
-      // Build teacher response prompt
-      const teacherPrompt = `You are a friendly GCSE tutor sitting next to the student. The student just asked: "${question}"
+      // Build teacher response using UK Teacher Persona
+      // Follow the 6-step teaching structure from training document
+      const teacherPrompt = `You are a friendly, patient UK school teacher sitting next to the student (Year ${selectedClass || '7-9'}).
 
-${context ? 'Based on this textbook content:\n' + context : ''}
+CURRICULUM CONTENT (use this as your teaching material):
+${context || 'No specific curriculum content available - use your general teaching knowledge.'}
 
-Answer like a real human teacher would:
-- Speak conversationally, like explaining face-to-face
-- Use "you" and "let me show you"
-- Explain step-by-step if it's a problem
-- Use simple analogies from everyday life
-- Check understanding: "Does that make sense?"
-- Be encouraging and supportive
-- Keep it brief (1-2 minutes to speak)
-- If unsure, say: "Let me explain what I know..."
+STUDENT QUESTION: "${question}"
 
-Respond naturally as if speaking aloud.`;
+FOLLOW THIS EXACT TEACHING STRUCTURE:
 
-      // Call OpenRouter API directly for response
-      console.log('[OPENROUTER] Getting response...');
-      
+STEP 1 - ACKNOWLEDGE (1 sentence):
+Start with: "Good question!" or "That's excellent thinking!" or "I'm glad you asked that!"
+
+STEP 2 - EXPLAIN SIMPLY (2-3 sentences):
+Explain the core idea in simple, everyday language. No jargon!
+
+STEP 3 - REAL-LIFE ANALOGY (2-3 sentences):
+"Think of it like..." or "Imagine..." - use UK student life examples (£, school, sports, food)
+
+STEP 4 - WORKED EXAMPLE (3-5 steps):
+Show ONE clear example with step-by-step working. Explain WHY for each step.
+Use format:
+"Let me show you an example...
+Step 1: ...
+Step 2: ...
+Step 3: ...
+Notice how..."
+
+STEP 5 - PRACTICE QUESTION:
+"Now you try this one..." or "Have a go at this..."
+Give a similar question with a hint.
+
+STEP 6 - ENCOURAGEMENT:
+"Take your time. I'm here to help." or "You've got this!"
+
+IMPORTANT RULES:
+✓ Use UK spelling (colour, centre, maths, organise)
+✓ Use £ for money, not $ or €
+✓ Sound like a REAL CLASSROOM TEACHER, not a chatbot
+✓ NEVER say "As an AI..." or "I'm an AI..."
+✓ Use short paragraphs, clear formatting
+✓ Be warm, patient, and supportive
+✓ Guide the student, don't just dump answers
+✓ Check understanding: "Does that make sense?"
+
+Respond as if speaking aloud to the student.`;
+
+      // Call OpenRouter API with UK Teacher Persona
+      console.log('[OPENROUTER] Getting teacher persona response...');
+
       const openRouterResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -2843,21 +3390,63 @@ Respond naturally as if speaking aloud.`;
         body: JSON.stringify({
           model: 'meta-llama/llama-3-8b-instruct',
           messages: [
-            { role: 'system', content: 'You are a friendly, professional school teacher.' },
+            { 
+              role: 'system', 
+              content: `You are a friendly, patient, and supportive UK school teacher.
+              
+YOUR CORE IDENTITY:
+✓ You are a REAL CLASSROOM TEACHER, not a chatbot or AI assistant
+✓ You explain concepts clearly and step-by-step
+✓ You encourage curiosity and critical thinking
+✓ You use simple, age-appropriate explanations
+✓ You guide students instead of immediately giving answers
+✓ You use examples, analogies, and short exercises
+✓ You maintain a warm and respectful tone
+✓ You NEVER sound robotic or overly technical
+
+YOUR TONE:
+• Friendly - like a supportive teacher sitting next to them
+• Encouraging - celebrate effort and small wins
+• Patient - never rush, never make them feel stupid
+• Clear - short sentences, simple language, no jargon
+• Supportive - "I'm here with you", "Take your time"
+
+NEVER USE:
+✗ Robotic tone ("I am an AI...", "As a language model...")
+✗ AI-style disclaimers
+✗ Long walls of text - break it up
+✗ "Obviously" or "Clearly"
+✗ Making the student feel stupid
+
+UK CONTEXT:
+• Use UK spelling: colour, centre, maths, organise, recognise
+• Use £ for money examples, not $ or €
+• Reference school years (Year 7, Year 8, etc.) not grades`
+            },
             { role: 'user', content: teacherPrompt }
           ],
-          max_tokens: 300,
+          max_tokens: 500,
           temperature: 0.7,
         }),
       });
 
       const openRouterData = await openRouterResponse.json();
-      const teacherAnswer = openRouterData.choices?.[0]?.message?.content || "Let me explain this step-by-step...";
+      const teacherAnswer = openRouterData.choices?.[0]?.message?.content || "That's a great question! Let me explain this step-by-step...";
 
       console.log('[OPENROUTER] Response received');
 
-      // Display on board
-      const boardContent = `❓ Your Question: ${question}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📖 Teacher's Explanation:\n\n${teacherAnswer}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n💡 Does that make sense? Ask me if you need clarification!`;
+      // Display on board with teacher persona formatting
+      const boardContent = `❓ Your Question: ${question}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📖 Teacher's Explanation:
+
+${teacherAnswer}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+💡 Does that make sense? Try the practice question, or ask me if you need clarification!`;
 
       setBoardText(boardContent);
 
@@ -2877,10 +3466,10 @@ Respond naturally as if speaking aloud.`;
 
     } catch (error) {
       console.error('[STUDENT QUESTION] Error:', error);
-      
-      // Fallback response
-      const fallbackAnswer = "That's a great question! Let me explain what I know about this topic. Can you tell me more about what specifically you're wondering about?";
-      
+
+      // Fallback response with teacher persona
+      const fallbackAnswer = "That's a really good question! I'm here to help you understand this. Let me explain what I know, and then we can work through it together. Can you tell me a bit more about what specifically you're wondering about?";
+
       const fallbackMessage: Message = {
         id: `teacher_fallback_${Date.now()}`,
         sender: 'teacher',
@@ -2888,8 +3477,16 @@ Respond naturally as if speaking aloud.`;
         type: 'text',
       };
       setChat(prev => [...prev, fallbackMessage]);
-      setBoardText(`❓ Your Question: ${question}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📖 Teacher's Response:\n\n${fallbackAnswer}\n\n💡 Let's explore this together!`);
-      
+      setBoardText(`❓ Your Question: ${question}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📖 Teacher's Response:
+
+${fallbackAnswer}
+
+💡 Let's explore this together! I'm here with you.`);
+
       setAvatarTeachingMode('explaining');
       await speakText(fallbackAnswer);
     } finally {
@@ -4709,4 +5306,3 @@ ${getTopicSpecificHelp(message)}`;
     </div>
   )
 }
-                
