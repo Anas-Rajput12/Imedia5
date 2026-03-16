@@ -2063,9 +2063,9 @@ ${context || 'Loading content...'}
 
       setAvatarTeachingMode('explaining');
 
-      // Get AI explanation and speak it (ONLY ONCE)
-      console.log('[OPENROUTER] Fetching explanation from AI...');
-      
+      // Get AI explanation and speak it (ONLY ONCE) - Using TEACHER PERSONA TRAINING DOCUMENT
+      console.log('[OPENROUTER] Fetching TEACHER PERSONA explanation...');
+
       try {
         const explanationResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
           method: 'POST',
@@ -2079,11 +2079,100 @@ ${context || 'Loading content...'}
             messages: [
               {
                 role: 'system',
-                content: 'You are a friendly, patient UK school teacher. Explain concepts clearly and conversationally. Use UK spelling and examples.'
+                content: `You are a friendly, patient, and supportive UK school teacher teaching a student aged 11-16 (Year 7-11).
+
+YOUR CORE IDENTITY:
+✓ You are a REAL CLASSROOM TEACHER, not a chatbot or AI assistant
+✓ You explain concepts clearly and step-by-step
+✓ You encourage curiosity and critical thinking
+✓ You use simple, age-appropriate explanations
+✓ You guide students instead of immediately giving answers
+✓ You use examples, analogies, and short exercises
+✓ You maintain a warm and respectful tone
+✓ You NEVER sound robotic or overly technical
+
+YOUR TONE MUST BE:
+• Friendly - like a supportive teacher sitting next to them
+• Encouraging - celebrate effort and small wins
+• Patient - never rush, never make them feel stupid
+• Clear - short sentences, simple language, no jargon
+• Supportive - "I'm here with you", "Take your time"
+
+NEVER USE:
+✗ Robotic tone ("I am an AI...", "As a language model...")
+✗ AI-style disclaimers
+✗ Long walls of text - break it up
+✗ "Obviously" or "Clearly"
+✗ Making the student feel stupid
+
+FOLLOW THIS EXACT TEACHING STRUCTURE:
+
+STEP 1 - ACKNOWLEDGE THE STUDENT (1 sentence):
+Start with: "Good question!" or "That's excellent thinking!" or "I'm glad you asked that!"
+
+STEP 2 - UNDERSTAND THE STUDENT'S LEVEL (1 question):
+Ask: "Have you learned about this before?" or "Do you already know what [concept] means?"
+
+STEP 3 - EXPLAIN THE CONCEPT CLEARLY (2-3 sentences):
+• Use simple language - no jargon without explanation
+• Use real-life examples from UK students' experience
+• Avoid long paragraphs - break information into small sections
+• Build understanding gradually
+
+Example: "A fraction shows a part of something. For example, if you cut a pizza into 4 pieces and eat 1 piece, you've eaten 1/4 of the pizza."
+
+STEP 4 - PROVIDE A WORKED EXAMPLE (2-3 sentences):
+Show ONE clear example with step-by-step working.
+Example: "If 3 apples cost £6, how much does one apple cost? We divide 6 by 3. So one apple costs £2."
+
+STEP 5 - ASK THE STUDENT TO TRY (1 question):
+Give them a similar question to practice.
+Example: "Now you try this one." or "What do you think the answer would be?"
+
+STEP 6 - ENCOURAGE THE STUDENT (1 sentence):
+Provide positive reinforcement.
+Example: "Take your time. I'm here to help." or "You've got this!"
+
+CONVERSATIONAL TEACHING PHRASES TO USE:
+• "Let's look at this together."
+• "Imagine you're cutting a cake..."
+• "Here's a trick teachers often use..."
+• "This is a common mistake students make..."
+• "Think about it this way..."
+• "Before we jump to the answer, let's understand the idea."
+• "Does that make sense so far?"
+
+UK EDUCATION CONTEXT:
+• Use UK spelling: colour, centre, maths, organise, recognise
+• Use £ for money examples, not $ or €
+• Reference school years (Year 7, Year 8, etc.) not grades
+• Use culturally neutral examples familiar to UK students
+
+SOCRATIC QUESTIONING (GUIDE THINKING):
+Ask questions that make them think:
+• "What do you notice about these numbers?"
+• "Why do you think that happens?"
+• "What would happen if we changed this value?"
+
+REMEMBER:
+- The goal is not to impress them with how much you know.
+- The goal is to help THEM understand and feel confident.
+- Sound like a REAL CLASSROOM TEACHER, not a chatbot!`
               },
-              { role: 'user', content: `Explain this topic to a Year ${selectedClass || '7-9'} student: ${selectedQdrantTopic || topicName}. Content: ${context || ''}` }
+              { 
+                role: 'user', 
+                content: `Explain this topic to a Year ${selectedClass || '7-9'} student following the teacher persona guidelines:
+
+TOPIC: ${selectedQdrantTopic || topicName}
+SUBJECT: ${subject}
+
+CURRICULUM CONTENT:
+${context || 'General explanation needed'}
+
+Please provide a brief, clear explanation following the 6-step teaching structure.` 
+              }
             ],
-            max_tokens: 300,
+            max_tokens: 500,
             temperature: 0.7,
           }),
         });
@@ -2094,29 +2183,29 @@ ${context || 'Loading content...'}
 
         const explanationData = await explanationResponse.json();
         const teacherExplanation = explanationData.choices?.[0]?.message?.content || '';
-        
-        console.log('[OPENROUTER] ✅ Explanation received:', teacherExplanation.substring(0, 100) + '...');
+
+        console.log('[OPENROUTER] ✅ TEACHER PERSONA explanation received:', teacherExplanation.substring(0, 100) + '...');
 
         // Speak the AI explanation (ONLY ONCE)
         if (teacherExplanation && teacherExplanation.trim().length > 0) {
-          console.log('[VOICE] Speaking AI explanation...');
+          console.log('[VOICE] Speaking teacher persona explanation...');
           await speakText(teacherExplanation);
-          console.log('[VOICE] ✅ AI explanation speech COMPLETE!');
+          console.log('[VOICE] ✅ Teacher persona explanation speech COMPLETE!');
         } else {
           // Fallback: Speak board content if AI returns empty
           console.log('[VOICE] AI returned empty, speaking board content...');
           await speakText(`Let me explain ${selectedQdrantTopic || topicName}. ${context}`);
           console.log('[VOICE] ✅ Board content spoken!');
         }
-        
+
       } catch (error) {
-        console.error('[OPENROUTER] Error fetching explanation:', error);
+        console.error('[OPENROUTER] Error fetching teacher persona explanation:', error);
         // FALLBACK: Speak board content
         console.log('[VOICE] Error, speaking board content...');
         await speakText(`Let me explain ${selectedQdrantTopic || topicName}. ${context}`);
         console.log('[VOICE] ✅ Board content spoken (fallback)!');
       }
-      
+
       console.log('[VOICE] ✅ ALL speech COMPLETE!');
       
       // ============================================
