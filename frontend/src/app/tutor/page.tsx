@@ -200,9 +200,7 @@ export default function TutorPage() {
   // Year 5-9 ONLY as specified
   const [selectedClass, setSelectedClass] = useState<string>('7')
   const [selectedTopic, setSelectedTopic] = useState<Topic | null>(null)
- const [avatarTeachingMode, setAvatarTeachingMode] = useState<
-  "explaining" | "writing" | "pointing" | "idle" | "listening"
->("idle");
+  const [teachingMode, setTeachingMode] = useState<'explaining' | 'questioning' | 'practicing'>('explaining')
   const [studentUnderstanding, setStudentUnderstanding] = useState<'confused' | 'okay' | 'confident'>('okay')
   const [currentLessonSection, setCurrentLessonSection] = useState(0)
   const [isSectionComplete, setIsSectionComplete] = useState(false)
