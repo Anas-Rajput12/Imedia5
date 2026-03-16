@@ -2050,13 +2050,11 @@ ${context || 'Loading content...'}
 💡 Listen carefully as I explain this...`;
 
       console.log('[NATURAL TEACHING] Setting board content...');
+      console.log('[NATURAL TEACHING] Board content:', boardContent);
       setBoardText(boardContent);
       setLessonTopic(topicName);
       console.log('[NATURAL TEACHING] ✅ Board content displayed');
       
-      // Small pause to let user see the content before explanation starts
-      await new Promise(resolve => setTimeout(resolve, 500));
-
       // ============================================
       // STEP 2: Teacher SPEAKS the explanation (Voice)
       // ============================================
@@ -2065,13 +2063,7 @@ ${context || 'Loading content...'}
 
       setAvatarTeachingMode('explaining');
 
-      const explanationPrompt = `You are a friendly UK school teacher. Explain this topic briefly and clearly to a Year ${selectedClass || '7-9'} student:
-
-TOPIC: ${selectedQdrantTopic || topicName}
-CONTENT: ${context || 'General explanation needed'}
-
-Keep it simple, use real-life examples (£, school, sports), and speak conversationally like you're sitting next to the student.`;
-
+      // Get AI explanation and speak it (ONLY ONCE)
       console.log('[OPENROUTER] Fetching explanation from AI...');
       
       try {
@@ -2089,7 +2081,7 @@ Keep it simple, use real-life examples (£, school, sports), and speak conversat
                 role: 'system',
                 content: 'You are a friendly, patient UK school teacher. Explain concepts clearly and conversationally. Use UK spelling and examples.'
               },
-              { role: 'user', content: explanationPrompt }
+              { role: 'user', content: `Explain this topic to a Year ${selectedClass || '7-9'} student: ${selectedQdrantTopic || topicName}. Content: ${context || ''}` }
             ],
             max_tokens: 300,
             temperature: 0.7,
@@ -2101,27 +2093,31 @@ Keep it simple, use real-life examples (£, school, sports), and speak conversat
         }
 
         const explanationData = await explanationResponse.json();
-        const teacherExplanation = explanationData.choices?.[0]?.message?.content || `Let me explain ${topicName} to you...`;
+        const teacherExplanation = explanationData.choices?.[0]?.message?.content || '';
         
         console.log('[OPENROUTER] ✅ Explanation received:', teacherExplanation.substring(0, 100) + '...');
 
-        // Speak the explanation (Avatar teacher talks)
-        // WAIT until speech is COMPLETE before continuing
-        console.log('[VOICE] Speaking explanation... WAIT for completion');
-        await speakText(teacherExplanation);
-        console.log('[VOICE] ✅ Explanation speech COMPLETE!');
+        // Speak the AI explanation (ONLY ONCE)
+        if (teacherExplanation && teacherExplanation.trim().length > 0) {
+          console.log('[VOICE] Speaking AI explanation...');
+          await speakText(teacherExplanation);
+          console.log('[VOICE] ✅ AI explanation speech COMPLETE!');
+        } else {
+          // Fallback: Speak board content if AI returns empty
+          console.log('[VOICE] AI returned empty, speaking board content...');
+          await speakText(`Let me explain ${selectedQdrantTopic || topicName}. ${context}`);
+          console.log('[VOICE] ✅ Board content spoken!');
+        }
         
       } catch (error) {
         console.error('[OPENROUTER] Error fetching explanation:', error);
-        
-        // FALLBACK: Use the context directly as explanation
-        console.log('[OPENROUTER] Using fallback explanation from context...');
-        const fallbackExplanation = context || `Let me explain ${topicName} to you. This is an important topic in your curriculum. ${context ? 'The key points are: ' + context : ''}`;
-        
-        console.log('[VOICE] Speaking fallback explanation...');
-        await speakText(fallbackExplanation);
-        console.log('[VOICE] ✅ Fallback explanation speech COMPLETE!');
+        // FALLBACK: Speak board content
+        console.log('[VOICE] Error, speaking board content...');
+        await speakText(`Let me explain ${selectedQdrantTopic || topicName}. ${context}`);
+        console.log('[VOICE] ✅ Board content spoken (fallback)!');
       }
+      
+      console.log('[VOICE] ✅ ALL speech COMPLETE!');
       
       // ============================================
       // STEP 3: Teacher asks "Do you have any questions?" (Voice)
