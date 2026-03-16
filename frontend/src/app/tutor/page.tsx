@@ -16,7 +16,12 @@ import ProgressDashboard from '@/components/ProgressDashboard'
 import SupportButtons from '@/components/SupportButtons'
 import * as ragService from '@/services/ragService'
 import { useSmartTeachingFlow } from '@/hooks/useSmartTeachingFlow'
-import smartAiTeacherService from '@/services/smartAiTeacher.service'
+import smartAiTeacherService, {
+  type DiagnosticQuestion,
+  type WorkedExample as ServiceWorkedExample,
+  type TeachingChunk,
+  type Feedback
+} from '@/services/smartAiTeacher.service'
 import stepByStepTeachingService, {
   type TeachingStep,
   type WorkedExample,
@@ -241,14 +246,14 @@ export default function TutorPage() {
   // SMART Teaching Flow State
   const [smartSessionId, setSmartSessionId] = useState<string>('')
   const [smartTeachingActive, setSmartTeachingActive] = useState(false)
-  const [diagnosticQuestions, setDiagnosticQuestions] = useState<smartAiTeacherService.DiagnosticQuestion[]>([])
+  const [diagnosticQuestions, setDiagnosticQuestions] = useState<DiagnosticQuestion[]>([])
   const [diagnosticAnswers, setDiagnosticAnswers] = useState<Record<string, string>>({})
-  const [teachingChunk, setTeachingChunk] = useState<smartAiTeacherService.TeachingChunk | null>(null)
-  const [workedExample, setWorkedExample] = useState<smartAiTeacherService.WorkedExample | null>(null)
-  const [masteryQuestions, setMasteryQuestions] = useState<smartAiTeacherService.DiagnosticQuestion[]>([])
+  const [teachingChunk, setTeachingChunk] = useState<TeachingChunk | null>(null)
+  const [workedExample, setWorkedExample] = useState<ServiceWorkedExample | null>(null)
+  const [masteryQuestions, setMasteryQuestions] = useState<DiagnosticQuestion[]>([])
   const [currentAnswer, setCurrentAnswer] = useState('')
   const [attemptCount, setAttemptCount] = useState(0)
-  const [feedback, setFeedback] = useState<smartAiTeacherService.Feedback | null>(null)
+  const [feedback, setFeedback] = useState<Feedback | null>(null)
   const [showDiagnosticQuiz, setShowDiagnosticQuiz] = useState(false)
   const [showMasteryCheck, setShowMasteryCheck] = useState(false)
   const [confidenceLevel, setConfidenceLevel] = useState<number>(3) // 1-5 scale
@@ -2833,7 +2838,7 @@ ${evaluation.isCorrect ? '🌟 Well done! You understand this!' : '💡 Let\'s t
   /**
    * Display Teaching Chunk on Board
    */
-  const displayTeachingChunk = (chunk: smartAiTeacherService.TeachingChunk) => {
+  const displayTeachingChunk = (chunk: TeachingChunk) => {
     let boardContent = `${type.toUpperCase()} • ${selectedYear}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📖 ${chunk.title}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`
 
     boardContent += `${chunk.content}\n\n`
@@ -2908,7 +2913,7 @@ ${evaluation.isCorrect ? '🌟 Well done! You understand this!' : '💡 Let\'s t
   /**
    * Display Worked Example on Board
    */
-  const displayWorkedExample = (example: smartAiTeacherService.WorkedExample) => {
+  const displayWorkedExample = (example: ServiceWorkedExample) => {
     let boardContent = `${type.toUpperCase()} • ${selectedYear}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📝 WORKED EXAMPLE\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`
 
     boardContent += `**Problem:**\n${example.problem}\n\n`
