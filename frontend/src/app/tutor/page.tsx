@@ -20,7 +20,7 @@ import smartAiTeacherService, {
   type DiagnosticQuestion,
   type WorkedExample as ServiceWorkedExample,
   type TeachingChunk,
-  type Feedback
+  type Feedback as SmartFeedback   // ✅ rename
 } from '@/services/smartAiTeacher.service'
 import stepByStepTeachingService, {
   type TeachingStep,
