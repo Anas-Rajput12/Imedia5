@@ -1692,13 +1692,19 @@ ${example.checkMethod ? `**Check:** ${example.checkMethod}` : ''}
   setBoardText(solutionBoard);
 };
 
-const showSolution = async () => {
+const showSolution = async (example: EnhancedWorkedExample) => {
   const solutionMessage: Message = {
     id: `solution_${Date.now()}`,
     sender: 'teacher',
-    text: `The answer is ${example.finalAnswer}. Remember to avoid these common mistakes: ${example.commonMistakes.join(', ')}.`,
+    text: `The answer is ${example.finalAnswer}. Remember to avoid these common mistakes: ${
+      example.commonMistakes?.join(', ') || 'None'
+    }.`,
     type: 'text',
   };
+
+  setChat(prev => [...prev, solutionMessage]);
+  await speakText(solutionMessage.text);
+};
 
   setChat(prev => [...prev, solutionMessage]);
 
