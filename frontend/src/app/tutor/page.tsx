@@ -1679,7 +1679,7 @@ ${step.highlight ? `🎯 Focus: ${step.highlight}` : ''}`);
 ━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 **Common Mistakes to Avoid:**
-${example.commonMistakes?.map(m => `• ${m}`).join('\n') || 'No common mistakes'}
+${(example as any).commonMistakes?.map((m: string) => `• ${m}`).join('\n') || 'No common mistakes'}
 
 ${example.checkMethod ? `**Check:** ${example.checkMethod}` : ''}
 
