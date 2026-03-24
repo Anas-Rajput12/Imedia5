@@ -126,7 +126,7 @@ export default function TutorPage() {
         await handleVoiceQuestion(transcript);
       }
     }
-  )
+  })
 
   const tutorData: Record<
   string,
