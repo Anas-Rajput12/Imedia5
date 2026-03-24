@@ -1692,20 +1692,23 @@ ${example.checkMethod ? `**Check:** ${example.checkMethod}` : ''}
   setBoardText(solutionBoard);
 };
 
-    const solutionMessage: Message = {
-      id: `solution_${Date.now()}`,
-      sender: 'teacher',
-      text: `The answer is ${example.finalAnswer}. Remember to avoid these common mistakes: ${example.commonMistakes.join(', ')}.`,
-      type: 'text',
-    };
-    setChat(prev => [...prev, solutionMessage]);
-    await speakText(solutionMessage.text);
-
-    // Move to practice
-    setTimeout(() => {
-      giveEnhancedPracticeQuestion(lessonTopic);
-    }, 3000);
+const showSolution = async () => {
+  const solutionMessage: Message = {
+    id: `solution_${Date.now()}`,
+    sender: 'teacher',
+    text: `The answer is ${example.finalAnswer}. Remember to avoid these common mistakes: ${example.commonMistakes.join(', ')}.`,
+    type: 'text',
   };
+
+  setChat(prev => [...prev, solutionMessage]);
+
+  await speakText(solutionMessage.text);
+
+  // Move to practice
+  setTimeout(() => {
+    giveEnhancedPracticeQuestion(lessonTopic);
+  }, 3000);
+};
 
   /**
    * PHASE 3: Give Practice Question - ENHANCED
@@ -4666,10 +4669,13 @@ ${getTopicSpecificHelp(message)}`;
                 </div>
               </div> */}
 
-              <Link href="/dashboard" className="px-3 sm:px-5 py-1.5 sm:py-2.5 rounded-lg sm:rounded-lg bg-red-50 hover:bg-red-100 border-2 border-red-200 text-red-600 font-bold transition-all text-xs sm:text-sm shadow-sm hover:shadow-md">
-                <span className="hidden sm:inline">Exit</span>
-                <span className="sm:hidden"></span>
-              </Link>
+              <Link
+  href="/dashboard"
+  className="px-3 sm:px-5 py-1.5 sm:py-2.5 rounded-lg sm:rounded-lg bg-red-50 hover:bg-red-100 border-2 border-red-200 text-red-600 font-bold transition-all text-xs sm:text-sm shadow-sm hover:shadow-md"
+>
+  <span className="hidden sm:inline">Exit</span>
+  <span className="sm:hidden"></span>
+</Link>
             </div>
           </div>
         </div>
