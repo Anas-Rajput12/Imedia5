@@ -1702,10 +1702,7 @@ const showSolution = async (example: EnhancedWorkedExample) => {
     type: 'text',
   };
 
-  setChat(prev => [...prev, solutionMessage]);
-  await speakText(solutionMessage.text);
-};
-
+  // ✅ inside function
   setChat(prev => [...prev, solutionMessage]);
 
   await speakText(solutionMessage.text);
@@ -5371,58 +5368,54 @@ ${getTopicSpecificHelp(message)}`;
       )}
 
       {/* Personalisation Mode - Layer 3 */}
-      {personalisationMode !== 'standard' && (
-        <div className="bg-yellow-50 border-2 border-yellow-300 rounded-2xl p-4 shadow-lg">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-2xl">🎯</span>
-            <h3 className="font-bold text-sm text-yellow-800">Adaptation Mode</h3>
-          </div>
-          <p className="text-xs font-semibold text-yellow-700 uppercase">{personalisationMode}</p>
-          <p className="text-xs text-yellow-600 mt-1">
-            {personalisationMode === 'simplify' && 'Simplified explanation activated'}
-            {personalisationMode === 'challenge' && 'Challenge mode - going deeper'}
-            {personalisationMode === 'scaffold' && 'Step-by-step scaffolding provided'}
-          </p>
-        </div>
-      )}
+      {/* Personalisation Mode - Layer 3 */}
+  {personalisationMode !== 'standard' && (
+    <div className="bg-yellow-50 border-2 border-yellow-300 rounded-2xl p-4 shadow-lg">
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-2xl">🎯</span>
+        <h3 className="font-bold text-sm text-yellow-800">Adaptation Mode</h3>
+      </div>
+      <p className="text-xs font-semibold text-yellow-700 uppercase">{personalisationMode}</p>
+      <p className="text-xs text-yellow-600 mt-1">
+        {personalisationMode === 'simplify' && 'Simplified explanation activated'}
+        {personalisationMode === 'challenge' && 'Challenge mode - going deeper'}
+        {personalisationMode === 'scaffold' && 'Step-by-step scaffolding provided'}
+      </p>
+    </div>
+  )}
 
-      {/* Incorrect Attempts Counter */}
-      {incorrectAttempts > 0 && (
-        <div className="bg-orange-50 border-2 border-orange-300 rounded-2xl p-4 shadow-lg">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-2xl">⚠️</span>
-            <h3 className="font-bold text-sm text-orange-800">Attempts</h3>
-          </div>
-          <p className="text-lg font-bold text-orange-700">{incorrectAttempts} incorrect</p>
-          {incorrectAttempts >= 2 && (
-            <p className="text-xs text-orange-600 mt-2">
-              Let me explain this differently...
-            </p>
-          )}
-          {incorrectAttempts >= 3 && (
-            <p className="text-xs text-orange-600 mt-2 font-semibold">
-              Would you like to take a break or try a different approach?
-            </p>
-          )}
-        </div>
-      )}
-
-      {/* Quick Safeguarding Notice */}
-      {/* <div className="bg-blue-50 border-2 border-blue-200 rounded-2xl p-4 shadow-lg mt-auto">
-        <div className="flex items-center gap-2 mb-2">
-          <span className="text-2xl">🛡️</span>
-          <h3 className="font-bold text-sm text-blue-800">Safe Learning</h3>
-        </div>
-        <p className="text-xs text-blue-700">
-          This AI tutor follows safeguarding guidelines. If you need personal support, talk to a trusted adult.
+  {/* Incorrect Attempts Counter */}
+  {incorrectAttempts > 0 && (
+    <div className="bg-orange-50 border-2 border-orange-300 rounded-2xl p-4 shadow-lg">
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-2xl">⚠️</span>
+        <h3 className="font-bold text-sm text-orange-800">Attempts</h3>
+      </div>
+      <p className="text-lg font-bold text-orange-700">{incorrectAttempts} incorrect</p>
+      {incorrectAttempts >= 2 && (
+        <p className="text-xs text-orange-600 mt-2">
+          Let me explain this differently...
         </p>
-      </div> */}
+      )}
+      {incorrectAttempts >= 3 && (
+        <p className="text-xs text-orange-600 mt-2 font-semibold">
+          Would you like to take a break or try a different approach?
+        </p>
+      )}
     </div>
+  )}
 
-  </div>
+  {/* Quick Safeguarding Notice */}
+  {/* <div className="bg-blue-50 border-2 border-blue-200 rounded-2xl p-4 shadow-lg mt-auto">
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-2xl">🛡️</span>
+        <h3 className="font-bold text-sm text-blue-800">Safe Learning</h3>
+      </div>
+      <p className="text-xs text-blue-700">
+        This AI tutor follows safeguarding guidelines. If you need personal support, talk to a trusted adult.
+      </p>
+  </div> */}
 
-</div>
-
-    </div>
+</div>  // <- only one main closing div
   )
 }
