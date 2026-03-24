@@ -1670,9 +1670,27 @@ ${step.highlight ? `🎯 Focus: ${step.highlight}` : ''}`);
    * Example complete - show solution
    */
   const showExampleComplete = async (example: EnhancedWorkedExample) => {
-    const solutionBoard = `📝 Worked Example Complete\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n**Solution:** ${example.finalAnswer}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n**Common Mistakes to Avoid:**\n${example.commonMistakes.map(m => `• ${m}`).join('\n')}\n\n${example.checkMethod ? `**Check:** ${example.checkMethod}` : ''}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n✅ Example Complete!\n\n⏭️ Next: Your Turn to Practice`;
+  const solutionBoard = `📝 Worked Example Complete
 
-    setBoardText(solutionBoard);
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+**Solution:** ${example.finalAnswer}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+**Common Mistakes to Avoid:**
+${example.commonMistakes?.map(m => `• ${m}`).join('\n') || 'No common mistakes'}
+
+${example.checkMethod ? `**Check:** ${example.checkMethod}` : ''}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ Example Complete!
+
+⏭️ Next: Your Turn to Practice`;
+
+  setBoardText(solutionBoard);
+};
 
     const solutionMessage: Message = {
       id: `solution_${Date.now()}`,
