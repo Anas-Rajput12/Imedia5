@@ -1678,7 +1678,7 @@ ${step.highlight ? `🎯 Focus: ${step.highlight}` : ''}`);
 ━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 **Common Mistakes to Avoid:**
-${example.commonMistakes?.map(m => `• ${m}`).join('\n') || 'None'}
+
 
 ${example.checkMethod ? `**Check:** ${example.checkMethod}` : ''}
 
