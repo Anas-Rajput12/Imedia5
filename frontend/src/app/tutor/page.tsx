@@ -19,8 +19,7 @@ import { useSmartTeachingFlow } from '@/hooks/useSmartTeachingFlow'
 import smartAiTeacherService, {
   type DiagnosticQuestion,
   type WorkedExample as ServiceWorkedExample,
-  type TeachingChunk,
-  type Feedback
+  type TeachingChunk
 } from '@/services/smartAiTeacher.service'
 import stepByStepTeachingService, {
   type TeachingStep,
